@@ -273,20 +273,18 @@ ShapedRecipy* ShapedRecipy::readFromStream(DataInputStream* dis) {
 	ItemInstance** ids = new ItemInstance*[width * height];
 
 	for (int i = 0; i < width * height; i++) {
+		ItemInstance* ingredients_item = nullptr;
 		bool isNull = dis->readBoolean();
-
-		if (isNull) {
-			ids[i] = nullptr;
-		} else {
+		if (!isNull) {
 			int itemId = dis->readShort();
 			int itemAux = dis->readShort();
 
-			ItemInstance* ingredients_item = new ItemInstance(itemId, 1, 0);
+			ingredients_item = new ItemInstance(itemId, 1, 0);
 			ingredients_item->setRawAuxValue(itemAux);
 			ingredients_item->tag = Packet::readNbt(dis);
-
-			ids[i] = ingredients_item;
 		}
+
+		ids[i] = ingredients_item;
 	}
 
 	return new ShapedRecipy(width, height, ids, resultItem, groupType);
