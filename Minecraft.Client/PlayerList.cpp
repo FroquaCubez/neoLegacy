@@ -37,6 +37,8 @@
 #include "Common/Network/Sony/NetworkPlayerSony.h"
 #endif
 
+#include "../Minecraft.World/Recipes.h"
+
 #if defined(_WINDOWS64) && defined(MINECRAFT_SERVER_BUILD)
 #include "../Minecraft.Server/Access/Access.h"
 #include "../Minecraft.Server/Common/StringUtils.h"
@@ -299,6 +301,8 @@ bool PlayerList::placeNewPlayer(Connection *connection, shared_ptr<ServerPlayer>
 	if (np) newSmallId = np->GetSmallId();
 	app.DebugPrintf("RECONNECT: placeNewPlayer smallId=%d entityId=%d dim=%d\n",
 		newSmallId, player->entityId, level->dimension->id);
+
+	playerConnection->send(Recipes::getInstance()->createUpdatePacket());
 
 	playerConnection->send(std::make_shared<LoginPacket>(L"", player->entityId, level->getLevelData()->getGenerator(),
 	                                                     level->getSeed(),

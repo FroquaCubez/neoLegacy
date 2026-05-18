@@ -20,4 +20,6 @@ public:
 	virtual bool reqs(int iRecipe);
 	virtual void reqs(INGREDIENTS_REQUIRED *pIngReq); 
 
+	virtual void writeToStream(DataOutputStream* dos);
+	static ShapelessRecipy* readFromStream(DataInputStream* dos);
 };
