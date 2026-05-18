@@ -19,6 +19,16 @@ ShapelessRecipy::ShapelessRecipy(ItemInstance *result, vector<ItemInstance *> *i
 {
 }
 
+ShapelessRecipy::~ShapelessRecipy() {
+	for (int i = 0; i < ingredients->size(); i++) {
+		delete (*ingredients)[i];
+	}
+
+	delete ingredients;
+	delete result;
+}
+
+
 const int ShapelessRecipy::getGroup() 
 {	
 	return group;

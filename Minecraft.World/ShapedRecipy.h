@@ -12,6 +12,7 @@ public:
 
 public:
 	ShapedRecipy(int width, int height, ItemInstance** recipeItems, ItemInstance* result, int iGroup = Recipy::eGroupType_Decoration);
+	virtual ~ShapedRecipy();
 
 	virtual const ItemInstance* getResultItem();
 	virtual const int getGroup();

@@ -23,6 +23,15 @@ ShapedRecipy::ShapedRecipy(int width, int height, ItemInstance **recipeItems, It
 		_keepTag = false;
 }
 
+ShapedRecipy::~ShapedRecipy() {
+	for (int i = 0; i < width * height; i++) {
+		delete recipeItems[i];
+	}
+
+	delete recipeItems;
+	delete result;
+}
+
 const int ShapedRecipy::getGroup() 
 {
 	return group;
