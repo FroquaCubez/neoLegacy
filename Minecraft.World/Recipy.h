@@ -41,7 +41,7 @@ public:
 		unsigned short usBitmaskMissingGridIngredients[XUSER_MAX_COUNT]; // each bit set means we don't have that grid ingredient
 	}
 	INGREDIENTS_REQUIRED;
-	~Recipy() {}
+	virtual ~Recipy() = default;
 	virtual bool matches(shared_ptr<CraftingContainer> craftSlots, Level* level) = 0;
 	virtual shared_ptr<ItemInstance> assemble(shared_ptr<CraftingContainer> craftSlots) = 0;
 	virtual int size() = 0;
