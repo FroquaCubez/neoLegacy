@@ -24,12 +24,21 @@ ShapedRecipy::ShapedRecipy(int width, int height, ItemInstance **recipeItems, It
 }
 
 ShapedRecipy::~ShapedRecipy() {
-	for (int i = 0; i < width * height; i++) {
-		delete recipeItems[i];
-	}
+	// todo: why does this cause a error when clearing out these specifically? 
+	// might be leaking memory here but im not sure cause it crashes when you clear them, so we dont clear them
+	/*for (int x = 0; x < 3; x++) {
+		for (int y = 0; y < 3; y++) {
+			if (x < width && y < height) {
+				delete recipeItems[x + y * width];
+			}
+		}
+	}*/
 
-	delete recipeItems;
+	delete[] recipeItems;
 	delete result;
+
+	recipeItems = nullptr;
+	result = nullptr;
 }
 
 const int ShapedRecipy::getGroup() 

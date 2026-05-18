@@ -9,7 +9,7 @@ private:
 
 public:
 	ShapelessRecipy(ItemInstance *result, vector<ItemInstance *> *ingredients, _eGroupType egroup=Recipy::eGroupType_Decoration);
-	virtual ~ShapelessRecipy();
+	virtual ~ShapelessRecipy() override;
 
 	virtual const ItemInstance *getResultItem();
 	virtual const int getGroup();

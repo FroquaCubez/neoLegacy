@@ -26,6 +26,9 @@ ShapelessRecipy::~ShapelessRecipy() {
 
 	delete ingredients;
 	delete result;
+
+	ingredients = nullptr;
+	result = nullptr;
 }
 
 
