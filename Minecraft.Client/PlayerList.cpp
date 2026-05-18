@@ -53,6 +53,7 @@ extern bool g_Win64DedicatedServer;
 static unsigned int s_playerListTickCount = 0;
 static const int kIdentityResponseGraceTicks = 200; // 10 seconds at 20 TPS
 #endif
+#include "../Minecraft.Client/Common/UI/IUIScene_CreativeMenu.h"
 
 // 4J - this class is fairly substantially altered as there didn't seem any point in porting code for banning, whitelisting, ops etc.
 
@@ -303,6 +304,7 @@ bool PlayerList::placeNewPlayer(Connection *connection, shared_ptr<ServerPlayer>
 		newSmallId, player->entityId, level->dimension->id);
 
 	playerConnection->send(Recipes::getInstance()->createUpdatePacket());
+	playerConnection->send(IUIScene_CreativeMenu::createUpdatePacket());
 
 	playerConnection->send(std::make_shared<LoginPacket>(L"", player->entityId, level->getLevelData()->getGenerator(),
 	                                                     level->getSeed(),

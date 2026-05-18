@@ -1581,7 +1581,6 @@ void Recipes::loadFromPacket(byteArray packetData)
 	ByteArrayInputStream bais(packetData);
 	DataInputStream input(&bais);
 
-
 	this->_wipeRecipes();
 	{
 		int iCount = input.readInt();

@@ -255,6 +255,10 @@ void ClientConnection::handleLogin(shared_ptr<LoginPacket> packet)
 		Recipes::getInstance()->loadFromLocal();
 	}
 
+	if (!m_recivedCreativeRegistyUpdate) {
+		IUIScene_CreativeMenu::loadFromLocal();
+	}
+
 	PlayerUID OnlineXuid;
 	ProfileManager.GetXUID(m_userIndex,&OnlineXuid,true); // online xuid
 	MOJANG_DATA *pMojangData = nullptr;
@@ -4038,6 +4042,11 @@ void ClientConnection::handleCustomPayload(shared_ptr<CustomPayloadPacket> custo
 		this->m_recivedRecipeRegistyUpdate = true;
 
 		Recipes::getInstance()->loadFromPacket(customPayloadPacket->data);
+	}
+	else if (CustomPayloadPacket::UPDATE_CREATIVE_REGISTRY.compare(customPayloadPacket->identifier) == 0) {
+		this->m_recivedCreativeRegistyUpdate = true;
+
+		IUIScene_CreativeMenu::loadFromPacket(customPayloadPacket->data);
 	}
 }
 
