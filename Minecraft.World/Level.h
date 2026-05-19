@@ -524,7 +524,7 @@ public:
 	int getAuxValueForMap(PlayerUID xuid, int dimension, int centreXC, int centreZC, int scale);
 
 	// 4J - optimisation - keep direct reference of underlying cache here
-	LevelChunk					**chunkSourceCache;
+	std::unordered_map<uint64_t, LevelChunk*> dynamic_chunkSourceCache;
 	int							chunkSourceXZSize;
 
 	// 4J - added for implementation of finite limit to number of item entities, tnt and falling block entities

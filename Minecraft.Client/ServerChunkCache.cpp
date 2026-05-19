@@ -30,12 +30,12 @@ ServerChunkCache::ServerChunkCache(ServerLevel *level, ChunkStorage *storage, Ch
     this->source = source;
 	this->m_XZSize = source->m_XZSize;
 
-	this->cache = new LevelChunk *[XZSIZE * XZSIZE];
-	memset(this->cache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
+	//this->cache = new LevelChunk *[XZSIZE * XZSIZE];
+	//memset(this->cache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
 
 #ifdef _LARGE_WORLDS
-	m_unloadedCache = new LevelChunk *[XZSIZE * XZSIZE];
-	memset(m_unloadedCache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
+	//m_unloadedCache = new LevelChunk *[XZSIZE * XZSIZE];
+	//memset(m_unloadedCache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
 #endif
 
 	InitializeCriticalSectionAndSpinCount(&m_csLoadCreate,4000);
@@ -46,15 +46,15 @@ ServerChunkCache::~ServerChunkCache()
 {
 	storage->WaitForAll();		// MGH -  added to fix crash bug 175183
 	delete emptyChunk;
-	delete cache;
+	dynamic_cache.clear(); //delete cache;
 	delete source;
 
 #ifdef _LARGE_WORLDS
-	for(unsigned int i = 0; i < XZSIZE * XZSIZE; ++i)
-	{
-		delete m_unloadedCache[i];
+	for (auto& pair : dynamic_unloadedCache) {
+		delete pair.second;
 	}
-	delete m_unloadedCache;
+
+	dynamic_unloadedCache.clear();
 #endif
 
 	for (auto& it : m_loadedChunkList)
@@ -73,8 +73,11 @@ bool ServerChunkCache::hasChunk(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return true;
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return true;
 	int idx = ix * XZSIZE + iz;
-	LevelChunk *lc = cache[idx];
-	if( lc == nullptr ) return false;
+	auto itor = dynamic_cache.find(idx);
+
+	if (itor == dynamic_cache.end()) return false;
+	if (itor->second == nullptr) return false;
+
 	return true;
 }
 
@@ -90,11 +93,11 @@ void ServerChunkCache::drop(const int x, const int z)
 	if ((ix < 0) || (ix >= XZSIZE)) return;
 	if ((iz < 0) || (iz >= XZSIZE)) return;
 	const int idx = ix * XZSIZE + iz;
-	LevelChunk* chunk = cache[idx];
+	auto itor = dynamic_cache.find(idx);
 
-	if (chunk != nullptr)
+	if (itor != dynamic_cache.end() && itor->second != nullptr)
 	{
-		m_toDrop.push_back(chunk);
+		m_toDrop.push_back(itor->second);
 	}
 }
 
@@ -121,38 +124,40 @@ LevelChunk *ServerChunkCache::create(int x, int z, bool asyncPostProcess)	// 4J 
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return emptyChunk;
 	int idx = ix * XZSIZE + iz;
 
-	LevelChunk *chunk = cache[idx];
-	LevelChunk *lastChunk = chunk;
+	LevelChunk* chunk = nullptr;
+	LevelChunk* lastChunk = nullptr;
+	auto itor = dynamic_cache.find(idx);
 
-	if( ( chunk == nullptr ) || ( chunk->x != x ) || ( chunk->z != z ) )
-	{
+	if (itor != dynamic_cache.end()) {
+		chunk = itor->second;
+		lastChunk = chunk;
+	}
+
+	if (chunk == nullptr || chunk->x != x || chunk->z != z) {
 		EnterCriticalSection(&m_csLoadCreate);
-        chunk = load(x, z);
+		chunk = load(x, z);
 #ifdef MINECRAFT_SERVER_BUILD
 		bool isNewChunk = (chunk == nullptr);
 #endif
-		if (chunk == nullptr)
-		{
-            if (source == nullptr)
-			{
-                chunk = emptyChunk;
-            }
-			else
-			{
-                chunk = source->getChunk(x, z);
-            }
-        }
-		if (chunk != nullptr)
-		{
+
+		if (chunk == nullptr) {
+			if (source == nullptr) {
+				chunk = emptyChunk;
+			} else {
+				chunk = source->getChunk(x, z);
+			}
+		}
+
+		if (chunk != nullptr) {
 			chunk->load();
 		}
 
 		LeaveCriticalSection(&m_csLoadCreate);
 
 #if ( defined _WIN64 || defined __LP64__ )
-		if( InterlockedCompareExchangeRelease64((LONG64 *)&cache[idx],(LONG64)chunk,(LONG64)lastChunk) == (LONG64)lastChunk )
+		if (InterlockedCompareExchangeRelease64((LONG64*)&dynamic_cache[idx], (LONG64)chunk, (LONG64)lastChunk) == (LONG64)lastChunk)
 #else
-		if( InterlockedCompareExchangeRelease((LONG *)&cache[idx],(LONG)chunk,(LONG)lastChunk) == (LONG)lastChunk )
+		if (InterlockedCompareExchangeRelease((LONG*)&dynamic_cache[idx], (LONG)chunk, (LONG)lastChunk) == (LONG)lastChunk)
 #endif // _DURANGO
 		{
 			// Successfully updated the cache
@@ -162,7 +167,7 @@ LevelChunk *ServerChunkCache::create(int x, int z, bool asyncPostProcess)	// 4J 
 			// they are in fail ServerChunkCache::hasChunk.
 			source->lightChunk(chunk);
 
-			updatePostProcessFlags( x, z );
+			updatePostProcessFlags(x, z);
 
 			m_loadedChunkList.push_back(chunk);
 
@@ -179,13 +184,13 @@ LevelChunk *ServerChunkCache::create(int x, int z, bool asyncPostProcess)	// 4J 
 			// the chunk which is to be processed itself rather than (what I presume to be) the correct position.
 			// Don't think we should change in case it alters level creation.
 
-			if( asyncPostProcess )
+			if (asyncPostProcess)
 			{
 				// 4J Stu - TODO This should also be calling the same code as chunk->checkPostProcess, but then we cannot guarantee we are in the server add the post-process request
-				if ( ( (chunk->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere) == 0) && hasChunk(x + 1, z + 1) && hasChunk(x, z + 1) && hasChunk(x + 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x, z);
-				if (hasChunk(x - 1, z) && ((getChunk(x - 1, z)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere ) == 0 ) && hasChunk(x - 1, z + 1) && hasChunk(x, z + 1) && hasChunk(x - 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x - 1, z);
-				if (hasChunk(x, z - 1) && ((getChunk(x, z - 1)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere ) == 0 ) && hasChunk(x + 1, z - 1) && hasChunk(x, z - 1) && hasChunk(x + 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x, z - 1);
-				if (hasChunk(x - 1, z - 1) && ((getChunk(x - 1, z - 1)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere ) == 0 ) && hasChunk(x - 1, z - 1) && hasChunk(x, z - 1) && hasChunk(x - 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x - 1, z - 1);
+				if (((chunk->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere) == 0) && hasChunk(x + 1, z + 1) && hasChunk(x, z + 1) && hasChunk(x + 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x, z);
+				if (hasChunk(x - 1, z) && ((getChunk(x - 1, z)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere) == 0) && hasChunk(x - 1, z + 1) && hasChunk(x, z + 1) && hasChunk(x - 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x - 1, z);
+				if (hasChunk(x, z - 1) && ((getChunk(x, z - 1)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere) == 0) && hasChunk(x + 1, z - 1) && hasChunk(x, z - 1) && hasChunk(x + 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x, z - 1);
+				if (hasChunk(x - 1, z - 1) && ((getChunk(x - 1, z - 1)->terrainPopulated & LevelChunk::sTerrainPopulatedFromHere) == 0) && hasChunk(x - 1, z - 1) && hasChunk(x, z - 1) && hasChunk(x - 1, z)) MinecraftServer::getInstance()->addPostProcessRequest(this, x - 1, z - 1);
 			}
 			else
 			{
@@ -203,32 +208,33 @@ LevelChunk *ServerChunkCache::create(int x, int z, bool asyncPostProcess)	// 4J 
 			// oxooo	ooooo	oooxo	oxPxo	ooxoo
 			// ooooo	ooooo	ooooo	ooxoo	ooooo
 
-			if( hasChunk( x - 1, z ) && hasChunk( x - 2, z ) && hasChunk( x - 1, z + 1 ) && hasChunk( x - 1, z - 1 ) ) chunk->checkChests( this, x - 1, z );
-			if( hasChunk( x, z + 1) && hasChunk( x , z + 2 ) && hasChunk( x - 1, z + 1 ) && hasChunk( x + 1, z + 1 ) ) chunk->checkChests( this, x, z + 1);
-			if( hasChunk( x + 1, z ) && hasChunk( x + 2, z ) && hasChunk( x + 1, z + 1 ) && hasChunk( x + 1, z - 1 ) ) chunk->checkChests( this, x + 1, z );
-			if( hasChunk( x, z - 1) && hasChunk( x , z - 2 ) && hasChunk( x - 1, z - 1 ) && hasChunk( x + 1, z - 1 ) ) chunk->checkChests( this, x, z - 1);
-			if( hasChunk( x - 1, z ) && hasChunk( x + 1, z ) && hasChunk ( x, z - 1 ) && hasChunk( x, z + 1 ) ) chunk->checkChests( this, x, z );
+			if (hasChunk(x - 1, z) && hasChunk(x - 2, z) && hasChunk(x - 1, z + 1) && hasChunk(x - 1, z - 1)) chunk->checkChests(this, x - 1, z);
+			if (hasChunk(x, z + 1) && hasChunk(x, z + 2) && hasChunk(x - 1, z + 1) && hasChunk(x + 1, z + 1)) chunk->checkChests(this, x, z + 1);
+			if (hasChunk(x + 1, z) && hasChunk(x + 2, z) && hasChunk(x + 1, z + 1) && hasChunk(x + 1, z - 1)) chunk->checkChests(this, x + 1, z);
+			if (hasChunk(x, z - 1) && hasChunk(x, z - 2) && hasChunk(x - 1, z - 1) && hasChunk(x + 1, z - 1)) chunk->checkChests(this, x, z - 1);
+			if (hasChunk(x - 1, z) && hasChunk(x + 1, z) && hasChunk(x, z - 1) && hasChunk(x, z + 1)) chunk->checkChests(this, x, z);
 
 			LeaveCriticalSection(&m_csLoadCreate);
 
 #ifdef MINECRAFT_SERVER_BUILD
 			FourKitBridge::FireChunkLoad(level->dimension->id, x, z, isNewChunk);
 #endif
-		}
-		else
-		{
-			// Something else must have updated the cache. Return that chunk and discard this one
+		} else {
 			chunk->unload(true);
 			delete chunk;
-			return cache[idx];
+
+			itor = dynamic_cache.find(idx);
+			if (itor == dynamic_cache.end()) return nullptr;
+
+			return itor->second;
 		}
-    }
+
+	}
 
 #ifdef __PS3__
 	Sleep(1);
 #endif // __PS3__
-    return chunk;
-
+	return chunk;
 }
 
 // 4J Stu - Split out this function so that we get a chunk without loading entities
@@ -241,11 +247,10 @@ LevelChunk *ServerChunkCache::getChunk(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return emptyChunk;
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return emptyChunk;
 	int idx = ix * XZSIZE + iz;
+	auto itor = dynamic_cache.find(idx);
 
-	LevelChunk *lc = cache[idx];
-	if( lc )
-	{
-		return lc;
+	if (itor != dynamic_cache.end() && itor->second != nullptr) {
+		return itor->second;
 	}
 
 	if( level->isFindingSpawn || autoCreate )
@@ -269,18 +274,19 @@ LevelChunk *ServerChunkCache::getChunkLoadedOrUnloaded(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return emptyChunk;
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return emptyChunk;
 	int idx = ix * XZSIZE + iz;
-
-	LevelChunk *lc = cache[idx];
-	if( lc )
 	{
-		return lc;
+		auto itor = dynamic_cache.find(idx);
+		if (itor != dynamic_cache.end() && itor->second != nullptr) {
+			return itor->second;
+		}
 	}
 
-	lc = m_unloadedCache[idx];
-	if( lc )
 	{
-		return lc;
-}
+		auto itor = dynamic_unloadedCache.find(idx);
+		if (itor != dynamic_unloadedCache.end() && itor->second != nullptr) {
+			return itor->second;
+		}
+	}
 
 	if( level->isFindingSpawn || autoCreate )
 	{
@@ -412,8 +418,13 @@ LevelChunk *ServerChunkCache::load(int x, int z)
 	int ix = x + XZOFFSET;
 	int iz = z + XZOFFSET;
 	int idx = ix * XZSIZE + iz;
-	levelChunk = m_unloadedCache[idx];
-	m_unloadedCache[idx] = nullptr;
+
+	auto itor = dynamic_unloadedCache.find(idx);
+	if (itor != dynamic_unloadedCache.end()) {
+		levelChunk = itor->second;
+		dynamic_unloadedCache.erase(itor);
+	}
+
 	if(levelChunk == nullptr)
 #endif
 	{
@@ -943,7 +954,7 @@ bool ServerChunkCache::tick()
     if (!level->noSave)
 	{
 #ifdef _LARGE_WORLDS
-		for (int i = 0; i < 100; i++)
+		for (int i = 0; i < m_toDrop.size(); i++)
 		{
 			if (!m_toDrop.empty())
 			{
@@ -973,9 +984,12 @@ bool ServerChunkCache::tick()
 						int ix = chunk->x + XZOFFSET;
 						int iz = chunk->z + XZOFFSET;
 						int idx = ix * XZSIZE + iz;
-						delete m_unloadedCache[idx];
-						m_unloadedCache[idx] = chunk;
-						cache[idx] = nullptr;
+
+						dynamic_unloadedCache.erase(idx);
+						dynamic_cache.erase(idx);
+
+						dynamic_unloadedCache.emplace(idx, chunk);
+
 #ifdef MINECRAFT_SERVER_BUILD
 						}
 #endif

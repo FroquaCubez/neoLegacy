@@ -93,8 +93,8 @@ MultiPlayerChunkCache::MultiPlayerChunkCache(Level *level)
 
 	this->level = level;
 
-	this->cache = new LevelChunk *[XZSIZE * XZSIZE];
-	memset(this->cache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
+	//this->cache = new LevelChunk *[XZSIZE * XZSIZE];
+	//memset(this->cache, 0, XZSIZE * XZSIZE * sizeof(LevelChunk *));
 	InitializeCriticalSectionAndSpinCount(&m_csLoadCreate,4000);
 }
 
@@ -102,7 +102,7 @@ MultiPlayerChunkCache::~MultiPlayerChunkCache()
 {
 	delete emptyChunk;
 	delete waterChunk;
-	delete cache;
+	dynamic_cache.clear(); //delete cache;
 	delete hasData;
 
     for (auto& it : loadedChunkList)
@@ -130,12 +130,10 @@ bool MultiPlayerChunkCache::reallyHasChunk(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return true;
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return true;
 	int idx = ix * XZSIZE + iz;
+	auto itor = dynamic_cache.find(idx);
 
-	LevelChunk *chunk = cache[idx];
-	if( chunk == nullptr )
-	{
-		return false;
-	}
+	if (itor == dynamic_cache.end() || itor->second == nullptr) return false;
+
 	return hasData[idx];
 }
 
@@ -146,19 +144,18 @@ void MultiPlayerChunkCache::drop(const int x, const int z)
 	if ((ix < 0) || (ix >= XZSIZE)) return;
 	if ((iz < 0) || (iz >= XZSIZE)) return;
 	const int idx = ix * XZSIZE + iz;
-	LevelChunk* chunk = cache[idx];
+	auto itor = dynamic_cache.find(idx);
+	
+	if (itor == dynamic_cache.end() || itor->second == nullptr || itor->second->isEmpty()) return;
 
-	if (chunk != nullptr && !chunk->isEmpty())
-	{
-		// Drop entities in the chunks, especially for the case when a player is dead
-		// as they will not get the RemoveEntity packet if an entity is removed.
-		// Don't delete tile entities, as they won't get recreated unless they've got
-		// update packets. Tile entities are created on the client by the chunk rebuild.
-		chunk->unload(false);
+	// Drop entities in the chunks, especially for the case when a player is dead
+	// as they will not get the RemoveEntity packet if an entity is removed.
+	// Don't delete tile entities, as they won't get recreated unless they've got
+	// update packets. Tile entities are created on the client by the chunk rebuild.
+	itor->second->unload(false);
 
-		// Keep chunk in cache with structural data intact.
-		chunk->loaded = true;
-	}
+	// Keep chunk in cache with structural data intact.
+	itor->second->loaded = true;
 }
 
 LevelChunk *MultiPlayerChunkCache::create(int x, int z)
@@ -169,11 +166,16 @@ LevelChunk *MultiPlayerChunkCache::create(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return ( waterChunk ? waterChunk : emptyChunk );
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return ( waterChunk ? waterChunk : emptyChunk );
 	int idx = ix * XZSIZE + iz;
-	LevelChunk *chunk = cache[idx];
-	LevelChunk *lastChunk = chunk;
+	LevelChunk* chunk = nullptr;
+	LevelChunk* lastChunk = nullptr;
+	auto itor = dynamic_cache.find(idx);
 
-	if( chunk == nullptr )
-	{
+	if (itor != dynamic_cache.end()) {
+		chunk = itor->second;
+		lastChunk = chunk;
+	}
+
+	if (chunk == nullptr) {
 		EnterCriticalSection(&m_csLoadCreate);
 
 		//LevelChunk *chunk;
@@ -210,9 +212,9 @@ LevelChunk *MultiPlayerChunkCache::create(int x, int z)
 		LeaveCriticalSection(&m_csLoadCreate);
 
 #if ( defined _WIN64 || defined __LP64__ )
-		if( InterlockedCompareExchangeRelease64((LONG64 *)&cache[idx],(LONG64)chunk,(LONG64)lastChunk) == (LONG64)lastChunk )
+		if( InterlockedCompareExchangeRelease64((LONG64 *)&dynamic_cache[idx],(LONG64)chunk,(LONG64)lastChunk) == (LONG64)lastChunk )
 #else
-		if( InterlockedCompareExchangeRelease((LONG *)&cache[idx],(LONG)chunk,(LONG)lastChunk) == (LONG)lastChunk )
+		if( InterlockedCompareExchangeRelease((LONG *)&dynamic_cache[idx],(LONG)chunk,(LONG)lastChunk) == (LONG)lastChunk )
 #endif // _DURANGO
 		{
 			// If we're sharing with the server, we'll need to calculate our heightmap now, which isn't shared. If we aren't sharing with the server,
@@ -232,7 +234,11 @@ LevelChunk *MultiPlayerChunkCache::create(int x, int z)
 			// Something else must have updated the cache. Return that chunk and discard this one. This really shouldn't be happening
 			// in multiplayer
 			delete chunk;
-			return cache[idx];
+
+			itor = dynamic_cache.find(idx);
+			if (itor == dynamic_cache.end()) return nullptr;
+
+			return itor->second;
 		}
 
 	}
@@ -252,16 +258,11 @@ LevelChunk *MultiPlayerChunkCache::getChunk(int x, int z)
 	if( ( ix < 0 ) || ( ix >= XZSIZE ) ) return ( waterChunk ? waterChunk : emptyChunk );
 	if( ( iz < 0 ) || ( iz >= XZSIZE ) ) return ( waterChunk ? waterChunk : emptyChunk );
 	int idx = ix * XZSIZE + iz;
+	auto itor = dynamic_cache.find(idx);
 
-	LevelChunk *chunk = cache[idx];
-	if( chunk == nullptr )
-	{
-		return emptyChunk;
-	}
-	else
-	{
-		return chunk;
-	}
+	if (itor == dynamic_cache.end() || itor->second == nullptr) return emptyChunk;
+
+	return itor->second;
 }
 
 bool MultiPlayerChunkCache::save(bool force, ProgressListener *progressListener)
