@@ -20,14 +20,13 @@ private:
 public:
 	bool autoCreate;
 private:
-	//LevelChunk **cache;
+	LevelChunk **cache;
     vector<LevelChunk *> m_loadedChunkList;
     ServerLevel *level;
 
 #ifdef _LARGE_WORLDS
 	deque<LevelChunk *> m_toDrop;
-	//LevelChunk **m_unloadedCache;
-	std::unordered_map<uint64_t, LevelChunk*> dynamic_unloadedCache;
+	LevelChunk **m_unloadedCache;
 #endif
 
 	// 4J - added for multithreaded support
@@ -53,7 +52,7 @@ public:
 	void updateOverwriteHellChunk(LevelChunk* origChunk, LevelChunk* playerChunk, int xMin, int xMax, int zMin, int zMax);
 
 #endif
-	virtual std::unordered_map<uint64_t, LevelChunk*>& getCache() { return dynamic_cache; }		// 4J added
+	virtual LevelChunk **getCache() { return cache; }		// 4J added
 #ifdef MINECRAFT_SERVER_BUILD
 	void regenerateChunk(int x, int z);
 #endif

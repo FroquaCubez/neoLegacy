@@ -1333,14 +1333,14 @@ int Level::getBrightness(LightLayer::variety layer, int x, int y, int z)
 	if( ( ix < 0 ) || ( ix >= chunkSourceXZSize ) ) return 0;
 	if( ( iz < 0 ) || ( iz >= chunkSourceXZSize ) ) return 0;
 	int idx = ix * chunkSourceXZSize + iz;
-	auto itor = dynamic_chunkSourceCache.find(idx);
+	LevelChunk *c = chunkSourceCache[idx];
 
-	if (itor == dynamic_chunkSourceCache.end() || itor->second == nullptr) return (int)layer;
+	if( c == nullptr ) return (int)layer;
 
 	if (y < 0) y = 0;
 	if (y >= maxBuildHeight) y = maxBuildHeight - 1;
 
-	return itor->second->getBrightness(layer, x & 15, y, z & 15);
+	return c->getBrightness(layer, x & 15, y, z & 15);
 }
 
 // 4J added as optimisation - if all the neighbouring brightesses are going to be in the one chunk, just get
@@ -1382,12 +1382,12 @@ void Level::getNeighbourBrightnesses(int *brightnesses, LightLayer::variety laye
 		}
 
 		int idx = ix * chunkSourceXZSize + iz;
-		auto itor = dynamic_chunkSourceCache.find(idx);
+		LevelChunk *c = chunkSourceCache[idx];
 
 		// 4J Stu - The java LightLayer was an enum class type with a member "surrounding" which is what we
 		// were returning here. Surrounding has the same value as the enum value in our C++ code, so just cast
 		// it to an int
-		if(itor == dynamic_chunkSourceCache.end() || itor->second == nullptr )
+		if( c == nullptr )
 		{
 			for( int i = 0; i < 6; i++ )
 			{
@@ -1397,7 +1397,7 @@ void Level::getNeighbourBrightnesses(int *brightnesses, LightLayer::variety laye
 		}
 
 		// Single call to the levelchunk too to avoid overhead of virtual fn calls
-		itor->second->getNeighbourBrightnesses(brightnesses, layer, x & 15, y, z & 15);
+		c->getNeighbourBrightnesses(brightnesses, layer, x & 15, y, z & 15);
 	}
 }
 

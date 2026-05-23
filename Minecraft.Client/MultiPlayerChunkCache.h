@@ -16,7 +16,7 @@ private:
 
 	vector<LevelChunk *> loadedChunkList;
 
-	//LevelChunk **cache;
+	LevelChunk **cache;
 	// 4J - added for multithreaded support
 	CRITICAL_SECTION m_csLoadCreate;
 	// 4J - size of cache is defined by size of one side - must be even
@@ -44,5 +44,5 @@ public:
 	virtual void recreateLogicStructuresForChunk(int chunkX, int chunkZ);
 	virtual void dataReceived(int x, int z);	// 4J added
 
-	virtual std::unordered_map<uint64_t, LevelChunk*>& getCache() { return dynamic_cache; }		// 4J added
+	virtual LevelChunk **getCache() { return cache; }		// 4J added
 };

@@ -59,9 +59,6 @@ public:
 	bool	m_mediumEdgeMoat;
 #endif
 
-protected:
-	std::unordered_map<uint64_t, LevelChunk*> dynamic_cache;
-
 public:
 	virtual ~ChunkSource() {}
 
@@ -76,7 +73,7 @@ public:
 	virtual bool tick() = 0;
 	virtual bool shouldSave() = 0;
 
-	virtual std::unordered_map<uint64_t, LevelChunk*>& getCache() { return dynamic_cache; }		// 4J added
+	virtual LevelChunk **getCache() { return nullptr; }		// 4J added
 	virtual void dataReceived(int x, int z) {}				// 4J added
 
 	/**
