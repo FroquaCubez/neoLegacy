@@ -48,13 +48,6 @@ class TilePos;
 #define END_LEVEL_MIN_WIDTH 18
 //#define END_LEVEL_MAX_WIDTH (LEVEL_MAX_WIDTH / END_LEVEL_SCALE)
 
-class ChunkKeyHash {
-public:
-	std::size_t operator()(const uint64_t& k) const noexcept {
-		return (std::size_t)k;
-	}
-};
-
 class ChunkSource
 {
 public:
@@ -67,7 +60,7 @@ public:
 #endif
 
 protected:
-	std::unordered_map<uint64_t, LevelChunk*, ChunkKeyHash> dynamic_cache;
+	std::unordered_map<uint64_t, LevelChunk*> dynamic_cache;
 
 public:
 	virtual ~ChunkSource() {}
@@ -83,7 +76,7 @@ public:
 	virtual bool tick() = 0;
 	virtual bool shouldSave() = 0;
 
-	virtual std::unordered_map<uint64_t, LevelChunk*, ChunkKeyHash>& getCache() { return dynamic_cache; }		// 4J added
+	virtual std::unordered_map<uint64_t, LevelChunk*>& getCache() { return dynamic_cache; }		// 4J added
 	virtual void dataReceived(int x, int z) {}				// 4J added
 
 	/**

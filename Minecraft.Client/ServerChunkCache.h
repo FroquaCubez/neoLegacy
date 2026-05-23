@@ -27,7 +27,7 @@ private:
 #ifdef _LARGE_WORLDS
 	deque<LevelChunk *> m_toDrop;
 	//LevelChunk **m_unloadedCache;
-	std::unordered_map<uint64_t, LevelChunk*, ChunkKeyHash> dynamic_unloadedCache;
+	std::unordered_map<uint64_t, LevelChunk*> dynamic_unloadedCache;
 #endif
 
 	// 4J - added for multithreaded support
@@ -53,7 +53,7 @@ public:
 	void updateOverwriteHellChunk(LevelChunk* origChunk, LevelChunk* playerChunk, int xMin, int xMax, int zMin, int zMax);
 
 #endif
-	virtual std::unordered_map<uint64_t, LevelChunk*, ChunkKeyHash>& getCache() { return dynamic_cache; }		// 4J added
+	virtual std::unordered_map<uint64_t, LevelChunk*>& getCache() { return dynamic_cache; }		// 4J added
 #ifdef MINECRAFT_SERVER_BUILD
 	void regenerateChunk(int x, int z);
 #endif
