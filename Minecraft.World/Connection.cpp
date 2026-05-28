@@ -687,7 +687,7 @@ int Connection::runWrite(void* lpParam)
 
 		//Sleep(100L);	
 		// TODO - 4J Stu - 1.8.2 changes these sleeps to 2L, but not sure whether we should do that as well	
-		waitResult = con->m_hWakeWriteThread->WaitForSignal(100L);
+		waitResult = con->m_hWakeWriteThread->WaitForSignal(50L); //was 100L, switch to 50L
 
 		if (con->bufferedDos != nullptr) con->bufferedDos->flush();
 		//if (con->byteArrayDos != nullptr) con->byteArrayDos->flush();
