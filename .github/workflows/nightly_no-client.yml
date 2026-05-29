@@ -130,7 +130,7 @@ jobs:
         with:
           configurePreset: windows64
           buildPreset: windows64-release
-          buildPresetAdditionalArgs: "['--target', 'Minecraft.Server.FourKit']"
+          buildPresetAdditionalArgs: "['--target', 'Minecraft.Server', '--target', 'Minecraft.Server.FourKit']"
 
       - name: Zip FourKit Build
         shell: pwsh
