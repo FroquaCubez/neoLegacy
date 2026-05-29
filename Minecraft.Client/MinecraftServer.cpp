@@ -2453,7 +2453,7 @@ void MinecraftServer::tick()
 	PIXEndNamedEvent();
 	int64_t afterConn = System::currentTimeMillis();
 
-#if defined(MINECRAFT_SERVER_BUILD)
+#if defined(_WINDOWS64) && defined(MINECRAFT_SERVER_BUILD)
 	PIXBeginNamedEvent(0, "FourKit Scheduler tick");
 	FourKitBridge::ServerTickCallback(tickCount);
 	PIXEndNamedEvent();

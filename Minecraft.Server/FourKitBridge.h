@@ -135,6 +135,8 @@ namespace FourKitBridge
     inline bool FirePlayerChat(int, const std::wstring&, std::wstring &outFormatted) { outFormatted.clear(); return false; }
     inline void UpdatePlayerEntityId(int, int) {}
 
+    inline void ServerTickCallback(int currentTick) {};
+
     inline int GetTileId(int, int, int, int) { return 0; }
     inline int GetTileData(int, int, int, int) { return 0; }
     inline void SetTile(int, int, int, int, int, int) {}
