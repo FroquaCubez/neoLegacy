@@ -1,0 +1,49 @@
+name: Build and Release Minecraft.Server.FourKit
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+        default: 'v1.0.0'
+
+jobs:
+  build-and-release:
+    name: Build, Zip, and Release
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B build 
+          -G "Visual Studio 17 2022" -A x64 
+          -DPLATFORM_NAME=Windows64
+
+      - name: Build Minecraft.Server.FourKit
+        run: cmake --build build --config Release --target Minecraft.Server.FourKit
+
+      - name: Zip Build Output
+        shell: pwsh
+        run: |
+          $sourcePath = "build\Minecraft.Server.FourKit\Release\*"
+          $zipPath = "Minecraft.Server.FourKit-${{ inputs.version_tag }}.zip"
+          
+          Compress-Archive -Path $sourcePath -DestinationPath $zipPath
+          
+          echo "ZIP_NAME=$zipPath" >> $env:GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          name: "FourKit Release ${{ inputs.version_tag }}"
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: true
